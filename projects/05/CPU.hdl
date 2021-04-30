@@ -39,5 +39,62 @@ CHIP CPU {
         pc[15];          // address of next instruction
 
     PARTS:
-    // Put your code here:
+    // Detect whether a instruction or c instruction
+    And(a=instruction[15],b=true,out=isCInstruction);
+    Not(in=isCInstruction,out=isAInstruction);
+
+
+    // Go through the first mux
+    And(a=isCInstruction, b=instruction[5], out=isCWriteA);
+    Or(a=isAInstruction, b=isCWriteA, out=loadA);
+    Mux16(a=instruction,b=outALU,sel=isCWriteA,out=inAReg);
+
+    // Register in AReg
+    ARegister(in=inAReg,load=loadA,out=outAReg,out[0..14]=addressM);
+
+    // Go through the second mux
+    Mux16(a=outAReg,b=inM,sel=instruction[12],out=outAorM);
+
+    // Register in DReg
+    And(a=isCInstruction, b=instruction[4], out=loadD);
+    DRegister(in=outALU,load=loadD,out=outDReg);
+
+    ALU(
+        x=outDReg,
+        y=outAorM,
+        zx=instruction[11],
+        nx=instruction[10],
+        zy=instruction[9],
+        ny=instruction[8],
+        f=instruction[7],
+        no=instruction[6],
+        out=outALU,
+        out=outM,
+        zr=isZeroOut,
+        ng=isNegOut
+    );
+
+
+      // Regist the output following C instruction
+      Not(in=isNegOut, out=isNonNeg);
+      Not(in=isZeroOut, out=isNonZero);
+      And(a=isNonNeg, b=isNonZero, out=isPositive);
+      
+      And(a=isCInstruction, b=instruction[3], out=writeM);
+      
+      And(a=isPositive, b=instruction[0], out=JGT);
+      And(a=isZeroOut, b=instruction[1], out=JEQ);
+      And(a=isNegOut, b=instruction[2], out=JLT);
+          
+      Or(a=JEQ, b=JLT, out=JLE);
+      Or(a=JLE, b=JGT, out=jumpToA);
+      And(a=isCInstruction, b=jumpToA, out=loadPC);
+      Not(in=loadPC, out=PCinc);
+      PC(in=outAReg, inc=PCinc, load=loadPC, reset=reset, out[0..14]=pc);
+
+
+
+
+
+    
 }
