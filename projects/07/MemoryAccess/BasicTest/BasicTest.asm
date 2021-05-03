@@ -128,7 +128,7 @@ M=M+1
 @SP
 AM=M-1
 D=M
-@65
+@11
 M=D
 @LCL
 D=M
@@ -212,7 +212,7 @@ AM=M-1
 M=M-D
 @SP
 M=M+1
-@65
+@11
 D=M
 @SP
 A=M
