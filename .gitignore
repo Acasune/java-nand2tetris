@@ -1,5 +1,6 @@
 ﻿.DS_Store
 *.class
+playground/
 ### IntelliJ IDEA ###
 .idea
 *.iws
