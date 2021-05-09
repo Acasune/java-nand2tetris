@@ -1,0 +1,121 @@
+// This file is part of www.nand2tetris.org
+// and the book "The Elements of Computing Systems"
+// by Nisan and Schocken, MIT Press.
+// File name: projects/12/Memory.jack
+
+/**
+ * This library provides two services: direct access to the computer's main
+ * memory (RAM), and allocation and recycling of memory blocks. The Hack RAM
+ * consists of 32,768 words, each holding a 16-bit binary number.
+ */ 
+class Memory {
+
+    static int heapBase;
+    static int heapEnd;
+    static int freeList;
+
+    /** Initializes the class. */
+    function void init() {
+        let heapBase=2048;
+        let heapEnd=16383;
+        let freeList = heapBase;
+        let freeList[0] = heapEnd - heapBase;
+        let freeList[1] = null;
+        return;
+    }
+
+    /** Returns the RAM value at the given address. */
+    function int peek(int address) {
+        return address[0];
+
+    }
+
+    /** Sets the RAM value at the given address to the given value. */
+    function void poke(int address, int value) {
+        let address[0] = value;
+        return;
+    }
+
+    /** Finds an available RAM block of the given size and returns
+     *  a reference to its base address. */
+    function int alloc(int size) {
+        if (size<0) {
+            do Sys.error(5); // 5: Memory.alloc Allocated memory size must be positive
+        }
+
+        return Memory.allocFirstFit(size);
+    }
+
+    /** De-allocates the given object (cast as an array) by making
+     *  it available for future allocations. */
+    function void deAlloc(int obj) {
+        var Array previousBlock, currentBlock;
+        var Array newBlock;
+        var boolean isGap;
+
+        let newBlock = obj - 1; // Pointing address whrere actural block start
+
+        if (freeList = 0) {
+            let freeList = newBlock;
+            let freeList[1] = 0;
+            return;
+        }
+
+        let previousBlock = freeList;
+        let currentBlock = freeList[1];
+        let isGap = false;
+
+        while (~(currentBlock = 0) & (~isGap)) {
+            if(~(currentBlock[1] = 0)) {
+                if(newBlock < currentBlock[1]) {
+                    let previousBlock = currentBlock;
+                    let currentBlock = currentBlock[1];
+                }
+            }
+            else {
+                let isGap = true;
+            }
+        }
+
+        let previousBlock[1] = newBlock;
+        let newBlock[1] = currentBlock;
+        return;
+    }
+
+    function int allocFirstFit(int size) {
+        var Array previousBlock, currentBlock;
+        var Array newBlock;
+
+        let previousBlock = null;
+        let currentBlock = freeList;
+
+        while (~(currentBlock = 0)) {
+            if((currentBlock[0] -1 ) = size) {
+                do Memory.deleteBlock(previousBlock, currentBlock);
+                return currentBlock + 1;
+            }
+            if (currentBlock[0] > (size + 2)) {
+                let currentBlock[(currentBlock[0] - 1) - size] = size  + 1;
+                let newBlock = currentBlock + currentBlock[0] - size - 1;
+                return newBlock;
+            }
+
+            let previousBlock = currentBlock;
+            let currentBlock = currentBlock[1];
+        }
+
+        do Sys.error(6)
+        return 0;
+    }
+
+    function void deleteBlock(int previousBlock, int currentBlock) {
+        if (previousBlock = 0) {
+            let freeList = currentBlock[1];
+        }
+        else {
+            let previousBlock[1] = currentBlock[1];
+        }
+
+        return;
+    }
+}

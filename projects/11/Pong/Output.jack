@@ -19,8 +19,35 @@ class Output {
     // Character map for displaying characters
     static Array charMaps; 
 
+    // Cursor position (in columns):
+    static int cursor_x, cursor_y;
+
+    // Screen dimensions (in rows and columns, respectively):
+    static int screen_height, screen_width;
+
+    // Bitmap dimensions (in rows and columns, respectively):
+    static int char_height, char_width;
+
+    // Pointer to the video RAM area:
+    static Array video_mem_base;
+
     /** Initializes the screen, and locates the cursor at the screen's top-left. */
     function void init() {
+         // Set cursor:
+        let cursor_x = 0;
+        let cursor_y = 0;
+
+        // Set character bitmap dimensions (in pixels):
+        let char_height = 11;
+        let char_width = 8;
+
+        // Set screen dimensions (in columns):
+        let screen_width = 512 / char_width;
+        let screen_height = 256 / char_height;
+
+        do Output.initMap();
+
+        return;
     }
 
     // Initializes the character map array
@@ -176,28 +203,139 @@ class Output {
     /** Moves the cursor to the j-th column of the i-th row,
      *  and erases the character displayed there. */
     function void moveCursor(int i, int j) {
+         if ((i < 0) | (i > (screen_height-1)) | (j < 0) | (j > (screen_width-1))) {
+            do Sys.error(20); // 20 Output.moveCursor Illegal cursor location
+        }
+
+        let cursor_x = j;
+        let cursor_y = i;
+
+        do Output.drawChar(32, false); // ASCII(' ') == 32
+
+        return;
     }
 
     /** Displays the given character at the cursor location,
      *  and advances the cursor one column forward. */
     function void printChar(char c) {
+        do Output.drawChar(c, true);
+        return;
     }
 
     /** displays the given string starting at the cursor location,
      *  and advances the cursor appropriately. */
     function void printString(String s) {
+        var int i, len;
+
+        let len = s.length();
+        let i = 0;
+
+        while (i < len) {
+            do Output.printChar(s.charAt(i));
+            let i = i + 1;
+        }
+
+        return;
     }
 
     /** Displays the given integer starting at the cursor location,
      *  and advances the cursor appropriately. */
     function void printInt(int i) {
+        var String s;
+
+        let s = String.new(screen_width);
+        do s.setInt(i);
+        do Output.printString(s);
+        do s.dispose();
+
+        return;
     }
 
     /** Advances the cursor to the beginning of the next line. */
     function void println() {
+        var int l;
+
+        let l = cursor_y + 1;
+
+        if (l < screen_height) {
+            do Output.moveCursor(l, 0);
+        }
+        else {
+            do Output.moveCursor(0, 0); // Wrap around.
+        }
+
+        return;
     }
 
     /** Moves the cursor one column back. */
     function void backSpace() {
+        if (cursor_x = 0) { // Go to previous line, if possible.
+            if (cursor_y = 0) {
+                return;
+            }
+            let cursor_y = cursor_y - 1;
+            let cursor_x = screen_width - 1;
+        }
+        else {
+            let cursor_x = cursor_x - 1;
+        }
+
+        return;
+
+    }
+
+
+     function void drawChar(char c, boolean advance_cursor) {
+        var int x,y;
+        var int i,j;
+        var int offset;
+        var int mask;
+        var Array char_map, line;
+        var int bit;
+
+        if ((cursor_x > (screen_width-1)) |
+            (cursor_y > (screen_height-1))) { // We can't draw it there.
+            return;
+        }
+
+        // Translating column, row into physical pixels:
+        let x = cursor_x * char_width;
+        let y = cursor_y * char_height;
+
+        // Getting the complete charmap:
+        let char_map = Output.getMap(c);
+
+        let j = 0;
+        while (j < char_height) {
+            let i = 0;
+            let line = char_map[j];
+
+            while (i < char_width) { // Drawing bit by bit of the jth row...
+                let mask = line & Math.powerOfTwo(i); // Only the bit we are looking at.
+
+                if (mask = 0) {
+                    do Screen.setColor(false);
+                }
+                else {
+                    do Screen.setColor(true);
+                }
+
+                do Screen.drawPixel(x+i, y+j);
+                let i = i + 1;
+            }
+
+            let j = j + 1;
+        }
+
+        if (advance_cursor) {
+            if (cursor_x + 1 < screen_width) {
+                let cursor_x = cursor_x + 1;
+            }
+            else {  // The line is over. Go to the next.
+                do Output.println();
+            }
+        }
+
+        return;
     }
 }
